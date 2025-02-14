@@ -26,9 +26,12 @@ def main():
             sys.exit(1)
     #
     # Determine the applicable date range: the previous month
+    #选取时间
     today = datetime.date.today()
-    endDate = today.replace(day=1) - datetime.timedelta(days=1)
-    startDate = endDate.replace(day=1)
+    #endDate = today.replace(day=1) - datetime.timedelta(days=1)#此行和下行为月的代码
+    #startDate = endDate.replace(day=1)
+    endDate = today - datetime.timedelta(days=1)  #此行和下行为天的代码
+    startDate = today - datetime.timedelta(days=2)
     monthName = startDate.strftime("%B")
     #
     # Set us up for API requests
@@ -37,15 +40,15 @@ def main():
         s.headers.update(HEADERS)
         #
         # Get all the categories
-        url = config['firefly-url'] + '/api/v1/categories'
+        url = config['firefly-url'] + '/api/v1//transactions?limit=50&page=1'
         categories = s.get(url).json()
         #
         # Get the spent and earned totals for each category
         totals = []
         for category in categories['data']:
-            url = config['firefly-url'] + '/api/v1/categories/' + category['id'] + '?start=' + startDate.strftime('%Y-%m-%d') + '&end=' + endDate.strftime('%Y-%m-%d')
-            r = s.get(url).json()
-            categoryName   = r['data']['attributes']['name']
+            url = config['firefly-url'] + '/api/v1//transactions?limit=50&page=1' + '&start=' + startDate.strftime('%Y-%m-%d') + '&end=' + endDate.strftime('%Y-%m-%d') + '&type=all'
+            recive = s.get(url).json()
+            categoryName   = recive['data']['attributes']['name']
             try:
                 categorySpent  = r['data']['attributes']['spent'][0]['sum']
             except (KeyError, IndexError):
@@ -92,22 +95,44 @@ def main():
         generalTableBody += '<tr><td>今年迄今收入：</td><td style="text-align: right;">' + str(round(earnedThisYear)).replace("-", "−") + '</td></tr>'
         generalTableBody += '<tr style="border-bottom: 1px solid black"><td style="padding-right: 1em;">今年迄今净变化：</td><td style="text-align: right;">' + str(round(netChangeThisYear)).replace("-", "−") + '</td></tr>'
         generalTableBody += '<tr><td>当前净资产：</td><td style="text-align: right;">' + str(round(netWorth)).replace("-", "−") + '</td></tr>'
-        generalTableBody +='</table>'
-        #
+        generalTableBody +='</table>'        #
         # Assemble the email
         msg = EmailMessage()
         msg['Subject'] = "Firefly III: Monthly report"
         msg['From'] = "monthly-report <" + config['email']['from'] + ">"
         msg['To'] = ( tuple(config['email']['to']) )
+        #htmlBody = """
         htmlBody = """
         <html>
             <head>
-                <style>table{{border-collapse: collapse; border-top: 1px solid black; border-bottom: 1px solid black;}} th {{border-bottom: 1px solid black; padding: 0.33em 1em 0.33em 1em;}} td{{padding: .1em;}} tr:nth-child(even) {{background: #EEE}} tr:nth-child(odd) {{background: #FFF}}</style>
+                <style>
+                    table {{
+                        border-collapse: collapse;
+                        border-top: 1px solid black;
+                        border-bottom: 1px solid black;
+                        width: 100%;
+                    }}
+                    th, td {{
+                        border: 1px solid black;
+                        padding: 0.5em;
+                        text-align: left;
+                    }}
+                    th {{
+                        background-color: #f2f2f2;
+                    }}
+                    tr:nth-child(even) {{
+                        background: #f9f9f9;
+                    }}
+                    tr:nth-child(odd) {{
+                        background: #ffffff;
+                    }}
+                </style>
             </head>
             <body>
-                <p>Monthly report for {monthName} {year}:</p>
+                <h2>月度财务报告</h2>
+                <h3>类别总计</h3>
                 {categoriesTableBody}
-                <p>General information:</p>
+                <h3>总体信息</h3>
                 {generalTableBody}
             </body>
         </html>
